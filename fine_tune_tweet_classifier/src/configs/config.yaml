@@ -14,7 +14,7 @@ model_parameters:
     {"name": relu},
     {"name": "linear", "in": 48, "out": 12},
     {"name": relu},
-    {"name": "linear", "in": 12, "out": 3},
+    {"name": "sigmoid", "in": 32, "out": 3}, #there is 32 unique label for multi-text classfication so we should use sigmoid for one-hot vektor
   ]
 
 training_parameters:
