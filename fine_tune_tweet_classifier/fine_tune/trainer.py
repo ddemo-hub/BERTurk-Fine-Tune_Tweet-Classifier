@@ -7,7 +7,7 @@ from .model.bert_model import BERTModel
 from .data.preprocessor import Preprocessor
 
 import logging
-
+import torch.optim.lr_scheduler as lr_scheduler
 from sklearn.metrics import f1_score, multilabel_confusion_matrix
 import transformers
 import pandas
@@ -61,8 +61,12 @@ class Trainer():
         else:
             raise Exception("The optimizer must be specified either as 'ADAM' or as 'SGD'. See 'fine_tune_tweet_classifier/src/configs/config.yaml'")
 
-        if self.config_service.lr_scheduler != None:
-            ... #TODO
+        if self.config_service.lr_scheduler == None:
+            scheduler = None
+        elif self.config_service.lr_scheduler == "LinearLR":
+            scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=1.0, end_factor=0.5, total_iters=30)
+        elif self.config_service.lr_scheduler == "ReduceLROnPlateau":
+            scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,mode='min',patience=30)    
 
         for epoch in range(1, self.config_service.num_epochs+1):
             training_loss = 0
@@ -84,8 +88,6 @@ class Trainer():
                 outputs[outputs >= self.config_service.threshold] = 1
                 outputs[outputs < self.config_service.threshold] = 0
                 training_preds += outputs.int().tolist()
-
-
             validation_loss = 0
             validation_preds = []
             validation_labels = []
@@ -104,7 +106,12 @@ class Trainer():
                 validation_preds += val_outputs.int().tolist()
                 
                 validation_texts += list(val_texts)
-
+               
+            if self.config_service.lr_scheduler == "LinearLR":
+                scheduler.step()
+            elif self.config_service.lr_scheduler == "ReduceLROnPlateau":
+                scheduler.step(validation_loss) #can be error test it #TODO
+                
             training_f1 = f1_score(training_labels, training_preds, average="macro")
             validation_f1 = f1_score(validation_labels, validation_preds, average="macro")
             validation_confusion_matrix = multilabel_confusion_matrix(validation_labels, validation_preds)
